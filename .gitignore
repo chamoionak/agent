@@ -1,6 +1,7 @@
 ### CUSTOM ###
 application-local.yml
-src/main/java/com/yupi/yuaiagent/demo/invoke/TestApiKey.java
+TestApiKey.java
+tmp
 
 HELP.md
 target/
