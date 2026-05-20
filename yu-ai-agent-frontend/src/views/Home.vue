@@ -1,4 +1,115 @@
 <script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+
+const poems = [
+  { text: '海上生明月，天涯共此时。', author: '—— 张九龄《望月怀远》' },
+  { text: '春眠不觉晓，处处闻啼鸟。', author: '—— 孟浩然《春晓》' },
+  { text: '会当凌绝顶，一览众山小。', author: '—— 杜甫《望岳》' },
+  { text: '欲穷千里目，更上一层楼。', author: '—— 王之涣《登鹳雀楼》' },
+  { text: '采菊东篱下，悠然见南山。', author: '—— 陶渊明《饮酒》' },
+  { text: '夜来风雨声，花落知多少。', author: '—— 孟浩然《春晓》' },
+  { text: '海内存知己，天涯若比邻。', author: '—— 王勃《送杜少府之任蜀州》' },
+  { text: '落霞与孤鹜齐飞，秋水共长天一色。', author: '—— 王勃《滕王阁序》' },
+  { text: '长风破浪会有时，直挂云帆济沧海。', author: '—— 李白《行路难》' },
+  { text: '两情若是久长时，又岂在朝朝暮暮。', author: '—— 秦观《鹊桥仙》' },
+]
+
+const displayedText = ref('')
+const poemAuthor = ref('')
+const isTyping = ref(false)
+
+const TYPE_SPEED = 100
+const DELETE_SPEED = 60
+const PAUSE_AFTER_COMPLETE = 3000
+
+let typeTimer = null
+let delayTimer = null
+
+function clearAllTimers() {
+  if (typeTimer) {
+    clearInterval(typeTimer)
+    typeTimer = null
+  }
+  if (delayTimer) {
+    clearTimeout(delayTimer)
+    delayTimer = null
+  }
+}
+
+function pickRandomPoem(excludeText) {
+  const pool = excludeText ? poems.filter((p) => p.text !== excludeText) : poems
+  const list = pool.length ? pool : poems
+  return list[Math.floor(Math.random() * list.length)]
+}
+
+function runCharLoop(tick, onDone, speed) {
+  clearInterval(typeTimer)
+  isTyping.value = true
+  typeTimer = setInterval(() => {
+    if (tick()) {
+      clearInterval(typeTimer)
+      typeTimer = null
+      isTyping.value = false
+      onDone()
+    }
+  }, speed)
+}
+
+function typeIn(poem, onComplete) {
+  displayedText.value = ''
+  poemAuthor.value = ''
+  let index = 0
+
+  runCharLoop(
+    () => {
+      if (index < poem.text.length) {
+        displayedText.value += poem.text[index]
+        index++
+        return false
+      }
+      return true
+    },
+    () => {
+      poemAuthor.value = poem.author
+      onComplete?.()
+    },
+    TYPE_SPEED,
+  )
+}
+
+function typeOut(onComplete) {
+  poemAuthor.value = ''
+
+  runCharLoop(
+    () => {
+      if (displayedText.value.length > 0) {
+        displayedText.value = displayedText.value.slice(0, -1)
+        return false
+      }
+      return true
+    },
+    onComplete,
+    DELETE_SPEED,
+  )
+}
+
+function playPoem(excludeText) {
+  const poem = pickRandomPoem(excludeText)
+  typeIn(poem, () => {
+    delayTimer = setTimeout(() => {
+      typeOut(() => playPoem(poem.text))
+    }, PAUSE_AFTER_COMPLETE)
+  })
+}
+
+onMounted(() => {
+  playPoem()
+})
+
+onUnmounted(() => {
+  clearAllTimers()
+})
+
 const apps = [
   {
     id: 'love',
@@ -33,7 +144,12 @@ const apps = [
       <header class="hero">
         <span class="hero-badge">AI Agent</span>
         <h1>应用中心</h1>
-        <p>选择下方应用，开启智能对话体验</p>
+        <p class="poem-line">
+          <span class="poem-text">{{ displayedText }}</span>
+          <span class="poem-cursor" :class="{ blink: isTyping }">|</span>
+        </p>
+        <p v-if="poemAuthor" class="poem-author">{{ poemAuthor }}</p>
+        <p class="hero-desc">选择下方应用，开启智能对话体验</p>
       </header>
 
       <main class="app-grid">
@@ -150,7 +266,45 @@ const apps = [
   background-clip: text;
 }
 
-.hero p {
+.poem-line {
+  min-height: 28px;
+  margin: 0 0 8px;
+  font-size: 17px;
+  color: #475569;
+  font-family: 'KaiTi', 'STKaiti', 'FangSong', serif;
+  letter-spacing: 0.06em;
+}
+
+.poem-text {
+  font-style: italic;
+}
+
+.poem-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  color: #6366f1;
+  font-weight: 300;
+  opacity: 0;
+}
+
+.poem-cursor.blink {
+  opacity: 1;
+  animation: cursor-blink 0.8s step-end infinite;
+}
+
+@keyframes cursor-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.poem-author {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.hero-desc {
   margin: 0;
   color: #64748b;
   font-size: 16px;
